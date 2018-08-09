@@ -80,6 +80,9 @@ type Work struct {
 	// output will be dumped as a csv stream.
 	Output string
 
+	// QueryParamProvider provides dynamic query parameters for each request
+	ParamProvider QueryParamProvider
+
 	// ProxyAddr is the address of HTTP proxy server in the format on "host:port".
 	// Optional.
 	ProxyAddr *url.URL
@@ -140,7 +143,6 @@ func (b *Work) Finish() {
 }
 
 func (b *Work) makeRequest(c *http.Client) {
-	s := now()
 	var size int64
 	var code int
 	var dnsStart, connStart, resStart, reqStart, delayStart time.Duration
@@ -172,6 +174,13 @@ func (b *Work) makeRequest(c *http.Client) {
 		},
 	}
 	req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
+	if b.ParamProvider != nil {
+		queryParameters, err := b.ParamProvider.Parameters(req.URL.Query())
+		if err == nil {
+			req.URL.RawQuery = queryParameters.Encode()
+		}
+	}
+	s := now()
 	resp, err := c.Do(req)
 	if err == nil {
 		size = resp.ContentLength

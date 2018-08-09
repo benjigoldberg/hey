@@ -29,7 +29,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rakyll/hey/requester"
+	"github.com/benjigoldberg/hey/requester"
 )
 
 const (
@@ -39,14 +39,15 @@ const (
 )
 
 var (
-	m           = flag.String("m", "GET", "")
-	headers     = flag.String("h", "", "")
-	body        = flag.String("d", "", "")
-	bodyFile    = flag.String("D", "", "")
-	accept      = flag.String("A", "", "")
-	contentType = flag.String("T", "text/html", "")
-	authHeader  = flag.String("a", "", "")
-	hostHeader  = flag.String("host", "", "")
+	m             = flag.String("m", "GET", "")
+	headers       = flag.String("h", "", "")
+	body          = flag.String("d", "", "")
+	bodyFile      = flag.String("D", "", "")
+	queryParamCSV = flag.String("P", "", "")
+	accept        = flag.String("A", "", "")
+	contentType   = flag.String("T", "text/html", "")
+	authHeader    = flag.String("a", "", "")
+	hostHeader    = flag.String("host", "", "")
 
 	output = flag.String("o", "", "")
 
@@ -86,12 +87,14 @@ Options:
   -A  HTTP Accept header.
   -d  HTTP request body.
   -D  HTTP request body from file. For example, /home/user/file.txt or ./file.txt.
+  -P  HTTP query parameters from CSV file. For example /home/user/file.csv or ./file.csv. Useful
+      for replaying logs. The first line in the file defines the names of the query parameters.
   -T  Content-type, defaults to "text/html".
   -a  Basic authentication, username:password.
   -x  HTTP Proxy address as host:port.
   -h2 Enable HTTP/2.
 
-  -host	HTTP Host header.
+  -host HTTP Host header.
 
   -disable-compression  Disable compression.
   -disable-keepalive    Disable keep-alive, prevents re-use of TCP
@@ -180,6 +183,12 @@ func main() {
 		bodyAll = slurp
 	}
 
+	queryParamProvider, err := requester.InitQueryParamCSVProvider(*queryParamCSV)
+	if err != nil {
+		errAndExit(err.Error())
+	}
+	defer queryParamProvider.Close()
+
 	var proxyURL *gourl.URL
 	if *proxyAddr != "" {
 		var err error
@@ -225,6 +234,7 @@ func main() {
 		H2:                 *h2,
 		ProxyAddr:          proxyURL,
 		Output:             *output,
+		ParamProvider:      queryParamProvider,
 	}
 	w.Init()
 
